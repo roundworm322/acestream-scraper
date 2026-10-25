@@ -7,6 +7,7 @@ import re
 import logging
 import aiohttp
 from app.utils.outbound_http import source_session
+from app.services.content_id_resolver import ID_KIND_KEY, INFOHASH, is_infohash_record
 from typing import List, Tuple, Dict, Any, Set
 from urllib.parse import urljoin, urlparse
 
@@ -18,6 +19,13 @@ class M3UService:
 
     def __init__(self):
         self.acestream_pattern = re.compile(r'acestream://([\w\d]+)')
+        # Engine links keyed by infohash rather than content id. Only the
+        # explicit query parameter counts; `&amp;` is tolerated because
+        # playlists copied out of HTML keep the entity.
+        self.infohash_pattern = re.compile(
+            r'/ace/(?:getstream|manifest\.m3u8)\?(?:[^\s#]*?&(?:amp;)?)?infohash=([0-9a-f]{40})(?![0-9a-f])',
+            re.IGNORECASE,
+        )
         self.m3u_pattern = re.compile(r"https?://[^\s<>\"']+?\.m3u[8]?(?=[\s<>\"']|$)")
         self.headers = {
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
@@ -183,10 +191,16 @@ class M3UService:
             acestream_match = self.acestream_pattern.search(line)
             getstream_match = re.search(r'getstream\?id=([a-fA-F0-9]{40})', line)
             channel_id = None
+            is_infohash = False
             if acestream_match:
                 channel_id = acestream_match.group(1)
             elif getstream_match:
                 channel_id = getstream_match.group(1)
+            elif infohash_match := self.infohash_pattern.search(line):
+                # Not playable with getstream?id=: tagged here and converted
+                # to a content id by the scrape before anything is stored.
+                channel_id = infohash_match.group(1).lower()
+                is_infohash = True
             stream_url = None
             if not channel_id and self._looks_like_stream(line):
                 # NOT AN ACESTREAM ID, AND IT IS STILL A CHANNEL.
@@ -213,6 +227,8 @@ class M3UService:
                     # Headers only mean something to an HTTP request; an
                     # acestream id goes through the engine.
                     metadata.pop('stream_headers', None)
+                if is_infohash:
+                    metadata[ID_KIND_KEY] = INFOHASH
                 channels.append((channel_id, name, metadata))
                 channel_info = {}
         logger.info(f"Extracted {len(channels)} channels from M3U content")
@@ -239,7 +255,8 @@ class M3UService:
         )
         tvg_id_map = {}
         for idx, (_ace_id, _name, meta) in enumerate(parsed_channels):
-            if _ace_id in excluded:
+            if _ace_id in excluded or is_infohash_record(meta):
+                # Infohashes are assigned after conversion to content ids.
                 continue
             tvg_id = meta.get('tvg_id')
             if tvg_id:
