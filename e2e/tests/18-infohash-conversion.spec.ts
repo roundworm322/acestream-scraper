@@ -4,7 +4,9 @@ import { startStubEngine, STUB_INFOHASH, STUB_INFOHASH_CONTENT_ID } from '../src
 
 const UNKNOWN_INFOHASH = 'e2e0000000000000000000000000000000000ba5';
 
-test('an infohash added from search is stored as its content id', async ({ api }) => {
+test('an infohash added from search is stored as its content id', async ({ api, errors }) => {
+  // The unknown-infohash request below is refused on purpose.
+  errors.allowBackend(/APIError code=INFOHASH_UNRESOLVED/);
   const engineUrl = await api.getSetting('ace_engine_url');
   const stub = await startStubEngine(path.resolve(__dirname, '../../backend/tests/docker/fixtures/sample-h264-ac3.m2ts'),
     process.env.E2E_TARGET === 'docker' ? { bindHost: '0.0.0.0', advertisedHost: 'host.docker.internal' } : undefined);
@@ -19,13 +21,15 @@ test('an infohash added from search is stored as its content id', async ({ api }
     });
     expect(created.status()).toBe(201);
     expect((await created.json()).id).toBe(STUB_INFOHASH_CONTENT_ID);
-    expect(stub.contentIdLookups()).toContain(STUB_INFOHASH);
+    // A previous run may have answered from the persistent conversion cache.
+    expect((await api.getChannel(STUB_INFOHASH_CONTENT_ID))?.id).toBe(STUB_INFOHASH_CONTENT_ID);
     expect(await api.getChannel(STUB_INFOHASH)).toBeUndefined();
 
     const refused = await api.raw('post', '/api/v1/acestream-channels/', {
       id: UNKNOWN_INFOHASH, name: 'E2E unknown infohash', id_type: 'infohash',
     });
     expect(refused.status()).toBe(422);
+    expect(stub.contentIdLookups()).toContain(UNKNOWN_INFOHASH);
     expect((await refused.json()).error.code).toBe('INFOHASH_UNRESOLVED');
     expect(await api.getChannel(UNKNOWN_INFOHASH)).toBeUndefined();
   } finally {

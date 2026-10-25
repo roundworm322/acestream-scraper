@@ -9,7 +9,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/env.sh"
 bash "$E2E_DIR/stack/backend-stop.sh" >/dev/null 2>&1 || true
 mkdir -p "$STACK_DIR/config"
 if [ "${E2E_RESET_DB:-0}" = "1" ]; then
-  rm -f "$STACK_DIR/config/scraper.db" "$STACK_DIR/config/scraper.db-journal"
+  rm -f "$STACK_DIR/config/scraper.db" "$STACK_DIR/config/scraper.db-journal" "$STACK_DIR/config/infohash_content_ids.json"
   log "reset e2e database"
 fi
 
