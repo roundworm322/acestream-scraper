@@ -25,6 +25,12 @@ class AcestreamChannelCreate(AcestreamChannelBase):
     tvg_id: Optional[str] = None
     tvg_name: Optional[str] = None
     is_online: Optional[bool] = None
+    id_type: Literal["content_id", "infohash"] = Field(
+        "content_id",
+        description="What `id` is. `infohash` (engine search results, getstream?infohash= links) is converted "
+                    "to its content ID through the engine before the channel is stored; the response carries "
+                    "the stored content ID.",
+    )
 
 
 

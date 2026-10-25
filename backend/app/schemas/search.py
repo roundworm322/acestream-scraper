@@ -1,5 +1,5 @@
 from pydantic import BaseModel, ConfigDict, Field, field_validator
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 class SearchResultItem(BaseModel):
     id: str = Field(..., description="Acestream channel ID (infohash)")
@@ -47,6 +47,11 @@ class AddChannelRequest(BaseModel):
     description: Optional[str] = Field(None, description="Channel description")
     logo: Optional[str] = Field(None, description="Channel logo URL")
     tv_channel_id: Optional[int] = Field(None, description="TV channel ID for association")
+    id_type: Literal["content_id", "infohash"] = Field(
+        "content_id",
+        description="Send `infohash` for engine search results: the id is converted to its content ID "
+                    "through the engine before the channel is stored.",
+    )
 
 class AddMultipleRequest(BaseModel):
     channels: List[AddChannelRequest] = Field(..., description="List of channels to add")

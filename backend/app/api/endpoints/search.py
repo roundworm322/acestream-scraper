@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, Query, HTTPException, Path
 from typing import List, Optional
 from sqlalchemy.orm import Session
 
+from app.api.infohash import resolve_submitted_infohash
 from app.config.database import get_db
 from app.schemas.search import SearchResponse, AddChannelRequest, AddMultipleRequest
 from app.schemas.channel_status import ChannelStatusResponse
@@ -49,6 +50,8 @@ async def add_channel(
     """
     Add a channel from search results to the database (delegated to service)
     """
+    if channel.id and channel.id_type == "infohash":
+        channel.id = await resolve_submitted_infohash(search_service.db, channel.id)
     return await search_service.add_channel(channel)
 
 

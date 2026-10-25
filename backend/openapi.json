@@ -35,6 +35,16 @@
             "title": "Id",
             "type": "string"
           },
+          "id_type": {
+            "default": "content_id",
+            "description": "What `id` is. `infohash` (engine search results, getstream?infohash= links) is converted to its content ID through the engine before the channel is stored; the response carries the stored content ID.",
+            "enum": [
+              "content_id",
+              "infohash"
+            ],
+            "title": "Id Type",
+            "type": "string"
+          },
           "is_online": {
             "anyOf": [
               {
@@ -711,6 +721,16 @@
             ],
             "description": "Acestream channel ID (optional, will be generated if not provided)",
             "title": "Id"
+          },
+          "id_type": {
+            "default": "content_id",
+            "description": "Send `infohash` for engine search results: the id is converted to its content ID through the engine before the channel is stored.",
+            "enum": [
+              "content_id",
+              "infohash"
+            ],
+            "title": "Id Type",
+            "type": "string"
           },
           "logo": {
             "anyOf": [
@@ -9989,7 +10009,7 @@
         ]
       },
       "post": {
-        "description": "Create a new Acestream channel. If a channel with the same ID exists, update it.",
+        "description": "Create a new Acestream channel. If a channel with the same ID exists, update it.\n\nWith `id_type: \"infohash\"` the id is converted to its content ID first;\nthe raw infohash is never stored.",
         "operationId": "create_acestream_channel_api_v1_acestream_channels__post",
         "requestBody": {
           "content": {
@@ -11197,7 +11217,7 @@
         ]
       },
       "post": {
-        "description": "Create a new Acestream channel. If a channel with the same ID exists, update it.",
+        "description": "Create a new Acestream channel. If a channel with the same ID exists, update it.\n\nWith `id_type: \"infohash\"` the id is converted to its content ID first;\nthe raw infohash is never stored.",
         "operationId": "create_acestream_channel_api_v1_channels__post",
         "requestBody": {
           "content": {

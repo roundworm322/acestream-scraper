@@ -64,6 +64,8 @@ export const URL_TYPE_LABELS: Record<string, string> = {
 export const describeScrapeResult = (status: string | null | undefined): { label: string; color: 'success' | 'error' | 'default'; detail?: string } => {
   if (!status || status === 'pending' || status === 'active') return { label: 'Not scraped yet', color: 'default' };
   if (status === 'OK') return { label: 'OK', color: 'success' };
+  // "OK — 1712 imported, 3 infohashes unresolved (...)": a success with a note.
+  if (/^OK\s+—\s+/.test(status)) return { label: 'OK', color: 'success', detail: status.replace(/^OK\s+—\s+/, '') };
   if (/^error/i.test(status)) return { label: 'Error', color: 'error', detail: status };
   return { label: status, color: 'default' };
 };
@@ -77,7 +79,7 @@ const renderScrapeResult = (url: { status?: string | null }) => {
       size="small"
       variant={result.color === 'default' ? 'outlined' : 'filled'}
       title={result.detail}
-      aria-label={result.detail ? `Last scrape failed: ${result.detail}` : undefined}
+      aria-label={result.detail ? `${result.color === 'error' ? 'Last scrape failed' : 'Last scrape OK'}: ${result.detail}` : undefined}
     />
   );
 };

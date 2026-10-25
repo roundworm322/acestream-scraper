@@ -146,8 +146,12 @@ const AcestreamChannels: React.FC = () => {
 
   const handleEditorSave = async (values: QuickEditValues) => {
     if (editorMode === 'create') {
-      await acestreamChannelService.createAcestreamChannel(values);
-      setNotice({ message: `Added ${values.name}.` });
+      const created = await acestreamChannelService.createAcestreamChannel(values);
+      setNotice({
+        message: created?.id && created.id !== values.id
+          ? `Added ${values.name}. The infohash was converted to content ID ${created.id}.`
+          : `Added ${values.name}.`,
+      });
     } else if (editorChannel?.id) {
       const { id, ...updates } = values;
       void id;

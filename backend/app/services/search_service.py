@@ -9,6 +9,8 @@ from app.config.settings import get_settings
 from app.repositories.channel_repository import ChannelRepository
 from app.repositories.url_repository import URLRepository
 from app.services.channel_service import ChannelService
+from app.services.content_id_resolver import ContentIdResolver, InfohashNotResolvedError, describe_failure
+from app.services.engine_client import EngineUnavailableError
 from app.schemas.search import AddChannelRequest, AddMultipleRequest
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
@@ -277,6 +279,7 @@ class SearchService:
             url="Acestream Search",
             trigger_scrape=False
         )
+        resolver = ContentIdResolver.from_settings(self.db)
         added_channels = []
         updated_channels = []
         failed_channels = []
@@ -288,6 +291,12 @@ class SearchService:
                 if not channel_data.id:
                     from uuid import uuid4
                     channel_data.id = str(uuid4())
+                elif channel_data.id_type == "infohash":
+                    try:
+                        channel_data.id = await asyncio.to_thread(resolver.resolve_one, channel_data.id)
+                    except (InfohashNotResolvedError, EngineUnavailableError) as exc:
+                        raise ValueError(describe_failure(exc)) from exc
+                    channel_data.id_type = "content_id"
                 existing_channel = self.channel_repo.get_channel_by_id(channel_data.id)
                 if existing_channel:
                     existing_channel.name = channel_data.name

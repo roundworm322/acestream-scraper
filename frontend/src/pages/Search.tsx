@@ -103,6 +103,8 @@ const Search: React.FC = () => {
     id: item.id,
     name: item.name,
     group: item.categories && item.categories.length > 0 ? item.categories[0] : undefined,
+    // Engine search returns infohashes; the backend stores the content ID.
+    id_type: 'infohash',
   });
 
   const markAdded = (ids: string[]) => {

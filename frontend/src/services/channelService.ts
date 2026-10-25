@@ -51,6 +51,8 @@ export interface CreateAcestreamChannelDTO {
   original_url?: string;
   epg_update_protected?: boolean;
   tv_channel_id?: number;
+  /** `infohash` asks the backend to convert the id to its content ID before storing it. */
+  id_type?: components['schemas']['AcestreamChannelCreate']['id_type'];
 }
 
 /**
