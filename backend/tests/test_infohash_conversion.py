@@ -560,3 +560,37 @@ def test_search_add_endpoints_convert_infohashes(client, db_session, engine_for_
     assert "Could not convert this infohash" in data["results"][1]["error"]
     assert db_session.get(AcestreamChannel, IH2) is None
     assert db_session.get(AcestreamChannel, IH1) is None
+
+
+def test_search_add_without_engine_stores_nothing(client, db_session):
+    set_engine_url(db_session, "")
+    response = client.post("/api/v1/search/add", json={"id": IH1, "name": "One", "url": "Acestream Search", "id_type": "infohash"})
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "ENGINE_NOT_CONFIGURED"
+    response = client.post("/api/v1/search/add_multiple", json={"channels": [
+        {"id": IH1, "name": "One", "url": "Acestream Search", "id_type": "infohash"},
+    ]})
+    assert response.json()["failed_count"] == 1
+    assert "No AceStream engine is configured" in response.json()["results"][0]["error"]
+    assert db_session.query(AcestreamChannel).count() == 0
+
+
+def test_large_playlist_scrape_is_bounded_and_rescrape_uses_the_cache(db_session, monkeypatch):
+    source = "https://example.com/large.m3u"
+    hashes = [f"{n:040x}" for n in range(1, 2001)]
+    content = "#EXTM3U\n" + "".join(
+        f"#EXTINF:-1,Channel {n}\nhttp://127.0.0.1:6878/ace/getstream?infohash={ih}\n" for n, ih in enumerate(hashes)
+    )
+    set_engine_url(db_session)
+    engine = FakeEngine({ih: ih[::-1] for ih in hashes}, delay=0.001)
+    use_engine(monkeypatch, engine)
+    started = time.monotonic()
+    channels, status, _ = _scrape(db_session, monkeypatch, source, content)
+    assert status == "OK" and len(channels) == 2000
+    assert engine.max_active <= resolver_module.RESOLVE_CONCURRENCY
+    assert time.monotonic() - started < 120
+    assert len(engine.calls) == 2000
+    engine.calls.clear()
+    channels, status, _ = _scrape(db_session, monkeypatch, source, content)
+    assert status == "OK" and len(channels) == 2000 and engine.calls == []
+    assert _ids(db_session, source) == {ih[::-1] for ih in hashes}
