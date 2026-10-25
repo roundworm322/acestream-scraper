@@ -10,6 +10,8 @@ Choose bundled or external services with the [Docker command builder](https://pi
 
 A stream is one AceStream content ID. A TV channel represents a station and groups primary/backup streams, a number, favorite flag and EPG mapping. **Acestream Channels** manages IDs; **TV Channels** manages stations; **Live TV** displays active stations with attached streams and a separate online-unassigned section.
 
+An *infohash* looks like a content ID (40 hexadecimal characters) but is a different key: the engine refuses to play it as `getstream?id=`. Search results and `getstream?infohash=` playlist links are infohashes, so the app converts them to content IDs with the engine when they are imported and stores only the content ID. This needs a reachable engine; conversions are remembered in `infohash_content_ids.json` beside the database, so later scrapes do not ask the engine again.
+
 ## What is Acexy, and do I need it?
 
 Acexy proxies engine streams and manages their sharing/cleanup. It is optional: direct engine mode is the app default. Enable the service in Docker, then select **Settings → Playback → Route playback through Acexy** if you want app playback to use it. The backend-facing Acexy URL and the player-facing published address may differ.

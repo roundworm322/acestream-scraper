@@ -70,6 +70,14 @@ selection preserves direct HTTP fetching.
 Plain `.txt` lists with alternating channel-name and 40-character ID lines are
 recognized automatically, preserving their names. Malformed hashes are skipped.
 Unstructured bare hashes on other pages still require **Harvest bare content IDs**.
+M3U entries such as `http://127.0.0.1:6878/ace/getstream?infohash=<40 hex>`
+(and `/ace/manifest.m3u8?infohash=`) carry an infohash, not a content ID. The scrape
+converts each one to its content ID with the configured engine before storing it.
+Entries the engine does not know are skipped and counted in the result, for example
+`OK — 1712 imported, 3 infohashes unresolved`. If the engine is unreachable and
+nothing could be converted, the scrape fails and the source keeps its existing
+channels. Without an engine, infohash entries are skipped and the other entries
+still import.
 Select **Add**, then use the row's **Scrape** action. **Scrape all** processes every enabled source.
 
 The table records the last result, last run, and number of channels found. If a source fails, its error remains visible there.
@@ -193,6 +201,11 @@ Choose **Watch**. The player and scrollable catalogue stay on the same page. Sea
 ## Search and manual additions
 
 Use **Search** to query the connected AceStream engine catalogue. Add one result or select several and add them together. Use **Add channel** on **Acestream Channels** when you already know a content ID.
+
+Search results are infohashes. Adding one converts it to its content ID through the
+engine, and the channel is stored under that content ID; if the engine cannot
+convert it, nothing is stored and the error is shown. When you paste an infohash
+into **Add channel**, tick **This is an infohash** so it is converted the same way.
 
 Search shows the catalogue's availability and last update separately from the
 current broadcast. **Catalogue: available** is an upstream report, not proof of

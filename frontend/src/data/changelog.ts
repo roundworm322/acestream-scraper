@@ -34,7 +34,8 @@ export const releases: ReleaseNotes[] = [
           "Play assigned HTTP/HLS and broadcaster sources through the Plex/Jellyfin tuner, including channels with no AceStream source. Verify HTTP media independently of the engine, refresh broadcaster links on opening, and try compatible HTTP or AceStream alternatives when startup fails. HTTP input is repackaged as MPEG-TS without re-encoding.",
           "Stop browser playback cleanly after terminal HTTP failures and provide bounded, masked source diagnostics. Audio and subtitle selections remain independent between viewers; subtitles default to Off.",
           "Respect the configured application port in containers, update bundled Kubo to 0.43.1, and report optional service states more accurately.",
-          "Improve session cleanup, disconnect handling and HLS segment handling during playback."
+          "Improve session cleanup, disconnect handling and HLS segment handling during playback.",
+          "Store engine search results and infohash playlist links under their playable content ID. They are converted with the engine on import; entries it cannot convert are skipped and counted, and an unreachable engine keeps the source's existing channels."
         ]
       },
       {
