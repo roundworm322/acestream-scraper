@@ -58,4 +58,33 @@ describe('QuickEditDialog', () => {
     fireEvent.change(screen.getByLabelText(/Acestream ID/), { target: { value: 'deadbeef' } });
     expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
   });
+
+  it('sends the infohash option only when creating', async () => {
+    const onSave = jest.fn().mockResolvedValue(undefined);
+    render(<QuickEditDialog open mode="create" onClose={() => {}} channel={{ id: '', name: '' }} onSave={onSave} />);
+
+    fireEvent.change(screen.getByLabelText(/^Name/), { target: { value: 'From search' } });
+    fireEvent.change(screen.getByLabelText(/Acestream ID/), { target: { value: ' 42832fbf9a1d3bdcca043e09951d6769fbbe04e7 ' } });
+    fireEvent.click(screen.getByLabelText(/This is an infohash/));
+    fireEvent.click(screen.getByText('Save'));
+
+    await waitFor(() =>
+      expect(onSave).toHaveBeenCalledWith(
+        expect.objectContaining({ id: '42832fbf9a1d3bdcca043e09951d6769fbbe04e7', id_type: 'infohash' })
+      )
+    );
+  });
+
+  it('defaults a new channel to a content ID and hides the option when editing', async () => {
+    const onSave = jest.fn().mockResolvedValue(undefined);
+    const { unmount } = render(<QuickEditDialog open mode="create" onClose={() => {}} channel={{ id: '', name: '' }} onSave={onSave} />);
+    fireEvent.change(screen.getByLabelText(/^Name/), { target: { value: 'Direct' } });
+    fireEvent.change(screen.getByLabelText(/Acestream ID/), { target: { value: 'abc' } });
+    fireEvent.click(screen.getByText('Save'));
+    await waitFor(() => expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ id_type: 'content_id' })));
+    unmount();
+
+    render(<QuickEditDialog open onClose={() => {}} channel={{ id: 'abc', name: 'Test' }} onSave={jest.fn()} />);
+    expect(screen.queryByLabelText(/This is an infohash/)).not.toBeInTheDocument();
+  });
 });

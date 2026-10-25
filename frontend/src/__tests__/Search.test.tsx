@@ -185,6 +185,7 @@ describe('Search page', () => {
         id: 'ace-1',
         name: 'Arena Premium',
         group: 'sports',
+        id_type: 'infohash',
       });
     });
 
@@ -225,6 +226,7 @@ describe('Search page', () => {
         id: 'ace-1',
         name: 'Arena Premium',
         group: 'sports',
+        id_type: 'infohash',
       });
     });
 
@@ -252,11 +254,13 @@ describe('Search page', () => {
       id: 'ace-1',
       name: 'Arena Premium',
       group: 'sports',
+      id_type: 'infohash',
     });
     expect(mutateAsync).toHaveBeenNthCalledWith(2, {
       id: 'ace-2',
       name: 'News Global',
       group: 'news',
+      id_type: 'infohash',
     });
 
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['acestream-channels'] });
@@ -285,11 +289,13 @@ describe('Search page', () => {
         id: 'ace-1',
         name: 'Arena Premium',
         group: 'sports',
+        id_type: 'infohash',
       });
       expect(mutateAsync).toHaveBeenNthCalledWith(2, {
         id: 'ace-2',
         name: 'News Global',
         group: 'news',
+        id_type: 'infohash',
       });
 
       expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['acestream-channels'] });
@@ -323,11 +329,13 @@ describe('Search page', () => {
         id: 'ace-1',
         name: 'Arena Premium',
         group: 'sports',
+        id_type: 'infohash',
       });
       expect(mutateAsync).toHaveBeenNthCalledWith(2, {
         id: 'ace-2',
         name: 'News Global',
         group: 'news',
+        id_type: 'infohash',
       });
 
       expect(screen.getByRole('status', { name: 'Search summary' })).toHaveTextContent('Selected1');
