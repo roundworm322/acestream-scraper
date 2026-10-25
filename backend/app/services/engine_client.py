@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 import time
 from threading import Timer
 import uuid
@@ -29,6 +30,9 @@ _Result = TypeVar("_Result")
 
 START_TIMEOUT = httpx.Timeout(15.0, connect=5.0)
 STAT_TIMEOUT = httpx.Timeout(5.0, connect=3.0)
+LOOKUP_TIMEOUT = httpx.Timeout(10.0, connect=3.0)
+
+_HEX40 = re.compile(r"[0-9a-f]{40}")
 
 
 class EngineUnavailableError(RuntimeError):
@@ -246,6 +250,44 @@ class EngineClient:
 
     def _stop_direct(self, session: EngineSession) -> None:
         _send_stop(self._client, session)
+
+    def get_content_id(self, infohash: str, timeout: httpx.Timeout = LOOKUP_TIMEOUT) -> Optional[str]:
+        """The content id the engine maps ``infohash`` to, or None if it has none.
+
+        Search results and ``getstream?infohash=`` playlists hand out
+        infohashes, which look like content ids but are refused by
+        ``getstream?id=`` ("failed to load content"). This is a catalogue
+        lookup on the legacy ``/server/api``: it opens no playback session.
+
+        Raises :class:`EngineUnavailableError` when the engine cannot be asked
+        (transport error, 5xx, non-JSON); returns None when it answered but
+        knows no content id for the hash, so callers can tell an outage from
+        an unknown hash.
+        """
+        try:
+            response = self._client.get(
+                f"{self.engine_url}/server/api",
+                params={"api_version": "3", "method": "get_content_id", "infohash": infohash},
+                timeout=timeout,
+            )
+        except httpx.HTTPError as exc:
+            logger.warning("Engine unreachable resolving infohash %s: %s", infohash, exc)
+            raise EngineUnavailableError(f"Engine request failed: {exc}") from exc
+        if response.status_code >= 500:
+            logger.warning("Engine returned HTTP %s resolving infohash %s", response.status_code, infohash)
+            raise EngineUnavailableError(f"Engine returned HTTP {response.status_code}")
+        try:
+            payload = response.json()
+        except ValueError as exc:
+            logger.warning("Engine returned a non-JSON answer resolving infohash %s", infohash)
+            raise EngineUnavailableError("Engine returned a non-JSON response") from exc
+        result = payload.get("result") if isinstance(payload, dict) else None
+        content_id = result.get("content_id") if isinstance(result, dict) else None
+        if isinstance(content_id, str) and _HEX40.fullmatch(content_id.strip().lower()):
+            return content_id.strip().lower()
+        error = payload.get("error") if isinstance(payload, dict) else None
+        logger.info("Engine has no content id for infohash %s (%s)", infohash, error or "no content_id in answer")
+        return None
 
     def stat(self, session: EngineSession) -> Optional[EngineStats]:
         if session.managed_by_acexy:
