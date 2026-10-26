@@ -26,6 +26,16 @@ jest.mock('../hooks/useSearch', () => ({
   useAddAcestreamChannel: (...args: unknown[]) => mockUseAddAcestreamChannel(...args),
 }));
 
+const mockResolveContentId = jest.fn();
+
+jest.mock('../services/searchService', () => ({
+  ...jest.requireActual('../services/searchService'),
+  searchService: {
+    ...jest.requireActual('../services/searchService').searchService,
+    resolveContentId: (...args: unknown[]) => mockResolveContentId(...args),
+  },
+}));
+
 jest.mock('../components/player/StreamPlayerDialog', () => ({
   __esModule: true,
   default: ({ open, title, contentId }: { open: boolean; title: string; contentId: string | null }) =>
@@ -185,15 +195,17 @@ describe('Search page', () => {
         id: 'ace-1',
         name: 'Arena Premium',
         group: 'sports',
+        id_type: 'infohash',
       });
     });
 
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['acestream-channels'] });
   });
 
-  it('plays a result without adding it', () => {
+  it('plays the content ID of a result without adding it', async () => {
     const mutateAsync = jest.fn().mockResolvedValue({});
     mockUseAddAcestreamChannel.mockReturnValue({ mutateAsync, isPending: false });
+    mockResolveContentId.mockResolvedValue({ infohash: 'ace-1', content_id: 'content-1' });
 
     renderPage();
 
@@ -201,8 +213,22 @@ describe('Search page', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Search' }));
     fireEvent.click(screen.getByRole('button', { name: 'play Arena Premium' }));
 
-    expect(screen.getByRole('dialog', { name: 'Arena Premium' })).toHaveTextContent('ace-1');
+    expect(await screen.findByRole('dialog', { name: 'Arena Premium' })).toHaveTextContent('content-1');
+    expect(mockResolveContentId).toHaveBeenCalledWith('ace-1');
     expect(mutateAsync).not.toHaveBeenCalled();
+  });
+
+  it('explains why a result cannot be played when its content ID cannot be resolved', async () => {
+    mockResolveContentId.mockRejectedValue(new Error('Could not convert this infohash to a content ID: unknown'));
+
+    renderPage();
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'Search Query' }), { target: { value: 'arena' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+    fireEvent.click(screen.getByRole('button', { name: 'play Arena Premium' }));
+
+    expect(await screen.findByText(/Could not play Arena Premium: Could not convert this infohash/)).toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: 'Arena Premium' })).not.toBeInTheDocument();
   });
 
   it('removes a successfully added single result from the current selection summary', async () => {
@@ -225,6 +251,7 @@ describe('Search page', () => {
         id: 'ace-1',
         name: 'Arena Premium',
         group: 'sports',
+        id_type: 'infohash',
       });
     });
 
@@ -252,11 +279,13 @@ describe('Search page', () => {
       id: 'ace-1',
       name: 'Arena Premium',
       group: 'sports',
+      id_type: 'infohash',
     });
     expect(mutateAsync).toHaveBeenNthCalledWith(2, {
       id: 'ace-2',
       name: 'News Global',
       group: 'news',
+      id_type: 'infohash',
     });
 
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['acestream-channels'] });
@@ -285,11 +314,13 @@ describe('Search page', () => {
         id: 'ace-1',
         name: 'Arena Premium',
         group: 'sports',
+        id_type: 'infohash',
       });
       expect(mutateAsync).toHaveBeenNthCalledWith(2, {
         id: 'ace-2',
         name: 'News Global',
         group: 'news',
+        id_type: 'infohash',
       });
 
       expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['acestream-channels'] });
@@ -323,11 +354,13 @@ describe('Search page', () => {
         id: 'ace-1',
         name: 'Arena Premium',
         group: 'sports',
+        id_type: 'infohash',
       });
       expect(mutateAsync).toHaveBeenNthCalledWith(2, {
         id: 'ace-2',
         name: 'News Global',
         group: 'news',
+        id_type: 'infohash',
       });
 
       expect(screen.getByRole('status', { name: 'Search summary' })).toHaveTextContent('Selected1');

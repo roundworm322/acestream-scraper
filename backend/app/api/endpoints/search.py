@@ -2,8 +2,9 @@ from fastapi import APIRouter, Depends, Query, HTTPException, Path
 from typing import List, Optional
 from sqlalchemy.orm import Session
 
+from app.api.infohash import resolve_submitted_infohash
 from app.config.database import get_db
-from app.schemas.search import SearchResponse, AddChannelRequest, AddMultipleRequest
+from app.schemas.search import SearchResponse, AddChannelRequest, AddMultipleRequest, ContentIdResponse
 from app.schemas.channel_status import ChannelStatusResponse
 from app.services.search_service import SearchService
 from app.services.config_service import ConfigService
@@ -49,7 +50,23 @@ async def add_channel(
     """
     Add a channel from search results to the database (delegated to service)
     """
+    if channel.id and channel.id_type == "infohash":
+        channel.id = await resolve_submitted_infohash(search_service.db, channel.id)
     return await search_service.add_channel(channel)
+
+
+@router.get("/{infohash}/content_id", response_model=ContentIdResponse)
+async def resolve_search_content_id(
+    infohash: str = Path(..., pattern=r"^[0-9a-fA-F]{40}$"),
+    search_service: SearchService = Depends(get_search_service),
+):
+    """Convert a search result's infohash to the content ID the player needs.
+
+    Cache first, then the engine's catalogue lookup; opens no playback session
+    and stores no channel.
+    """
+    content_id = await resolve_submitted_infohash(search_service.db, infohash)
+    return ContentIdResponse(infohash=infohash.lower(), content_id=content_id)
 
 
 @router.post("/{infohash}/check_status", response_model=ChannelStatusResponse)

@@ -10,6 +10,9 @@ from app.models.models import ScrapedURL, AcestreamChannel
 from app.models.url_types import create_url_object
 from app.schemas.scraper import ChannelResult, URLResponse, URLCreate, URLUpdate
 from app.scrapers import create_scraper_for_url
+from app.services.content_id_resolver import (
+    ID_KIND_KEY, ContentIdResolver, ResolutionOutcome, is_infohash_record,
+)
 from app.services.m3u_service import M3UService
 from app.services.epg_service import EPGService
 from app.services.tvchannel_service import TVChannelService
@@ -40,6 +43,7 @@ class ScraperService:
         logger.info(f"Scraping URL: {url} (type: {url_type})")
 
         custom_recipe = False
+        status_changed = False
         try:
             scraper = create_scraper_for_url(url, url_type)
             try:
@@ -69,6 +73,19 @@ class ScraperService:
             else:
                 raw_channels, status = await scraper.scrape()
 
+            raw_channels, conversion = await self._convert_infohashes(raw_channels)
+            if conversion is not None:
+                failure = self._conversion_failure(conversion, raw_channels)
+                if failure:
+                    # Nothing was converted and the engine is the reason: treat
+                    # it as a failed scrape so the source keeps its channels.
+                    self.db.rollback()
+                    await scraper.update_url_status(source_url, failure)
+                    return [], failure
+                if conversion.unresolved and not status.lower().startswith('error'):
+                    status = self._conversion_status(len(raw_channels), conversion)
+                    status_changed = True
+
             # Auto-create TV channels from EPG and assign tv_channel_id
             m3u_service = M3UService()
             raw_channels = m3u_service.auto_create_tv_channels_from_epg(self.db, raw_channels, epg_service, tv_channel_service)
@@ -76,7 +93,11 @@ class ScraperService:
             new_channel_ids = {channel_id for channel_id, _, _ in raw_channels}
             source_urls = {url, source_url}
             source_query = self.db.query(AcestreamChannel).filter(AcestreamChannel.source_url.in_(source_urls))
-            if new_channel_ids and not (url_record and url_record.extraction_recipe):
+            # Entries skipped only because the engine was unreachable (or
+            # unconfigured) may already be stored under their content id:
+            # pruning now would delete them for an outage.
+            keep_unlisted = conversion is not None and not conversion.only_definitive_failures
+            if new_channel_ids and not keep_unlisted and not (url_record and url_record.extraction_recipe):
                 source_query = source_query.filter(~AcestreamChannel.id.in_(new_channel_ids))
                 source_query.delete(synchronize_session=False)
 
@@ -97,14 +118,23 @@ class ScraperService:
                     # association into the INSERT; existing rows are assigned
                     # by the repository's conflict-checked UPDATE above.
                     tv_channel_id=metadata.get('tv_channel_id'),
+                    # Set only for streams addressed by URL instead of by an
+                    # acestream id. See M3UService._looks_like_stream.
+                    stream_url=metadata.get('stream_url'),
+                    stream_headers=metadata.get('stream_headers'),
                     # Catalogue presence is not evidence of a live signal.
                     is_online=None,
                     commit=False,
                 )
                 persisted_channels.append(persisted)
             self.db.commit()
-            if custom_recipe:
-                await scraper.update_url_status(source_url, "OK")
+            if custom_recipe or status_changed:
+                await scraper.update_url_status(source_url, status)
+            if not status.lower().startswith('error'):
+                from starlette.concurrency import run_in_threadpool
+                from app.services.epg_matching_automation import EPGMatchingAutomation
+                await run_in_threadpool(EPGMatchingAutomation(self.db).run)
+
 
             return [
                 ChannelResult(
@@ -127,6 +157,63 @@ class ScraperService:
                 await scraper.update_url_status(source_url, "Error: Recipe extraction failed; test the source configuration")
             logger.error(f"Error scraping URL {url}: {str(e)}")
             return [], f"Error: {str(e)}"
+
+    async def _convert_infohashes(
+        self, raw_channels: List[Tuple[str, str, Dict[str, Any]]]
+    ) -> Tuple[List[Tuple[str, str, Dict[str, Any]]], Optional[ResolutionOutcome]]:
+        """Replace infohash-tagged records by their content ids.
+
+        Unresolved records are dropped; duplicates created by the conversion
+        (two hashes for one content id, or a hash for an id the source also
+        lists directly) keep their first occurrence.
+        """
+        infohashes = [channel_id for channel_id, _, metadata in raw_channels if is_infohash_record(metadata)]
+        if not infohashes:
+            return raw_channels, None
+        outcome = await ContentIdResolver.from_settings(self.db).resolve_many(infohashes)
+        converted = []
+        seen = set()
+        for channel_id, name, metadata in raw_channels:
+            if is_infohash_record(metadata):
+                content_id = outcome.resolved.get(channel_id.lower())
+                if not content_id:
+                    continue
+                metadata = {key: value for key, value in metadata.items() if key != ID_KIND_KEY}
+                channel_id = content_id
+            if channel_id in seen:
+                continue
+            seen.add(channel_id)
+            converted.append((channel_id, name, metadata))
+        logger.info(
+            "Converted infohashes to content ids: %s resolved (%s engine lookups), %s unknown, %s engine unreachable, %s no engine",
+            len(outcome.resolved), outcome.engine_calls, len(outcome.unknown),
+            len(outcome.unavailable), len(outcome.no_engine),
+        )
+        return converted, outcome
+
+    @staticmethod
+    def _conversion_failure(outcome: ResolutionOutcome, channels: list) -> Optional[str]:
+        if outcome.resolved:
+            return None
+        if outcome.unavailable:
+            return (f"Error: AceStream engine unreachable; {outcome.unresolved} infohash links could not be "
+                    "converted to content IDs. Existing channels were kept.")
+        if outcome.no_engine and not channels:
+            return (f"Error: {outcome.unresolved} infohash links need an AceStream engine to be converted "
+                    "to content IDs; configure the engine URL in Settings.")
+        return None
+
+    @staticmethod
+    def _conversion_status(imported: int, outcome: ResolutionOutcome) -> str:
+        reasons = []
+        if outcome.unknown:
+            reasons.append(f"{len(outcome.unknown)} unknown to the engine")
+        if outcome.unavailable:
+            reasons.append(f"{len(outcome.unavailable)} engine unreachable")
+        if outcome.no_engine:
+            reasons.append(f"{len(outcome.no_engine)} no engine configured")
+        noun = "infohash" if outcome.unresolved == 1 else "infohashes"
+        return f"OK — {imported} imported, {outcome.unresolved} {noun} unresolved ({', '.join(reasons)})"
 
     def get_scraped_urls(self, skip: int = 0, limit: int = 100) -> List[URLResponse]:
         """Get list of URLs that have been scraped, including channels_found count"""

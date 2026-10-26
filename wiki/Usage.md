@@ -70,6 +70,14 @@ selection preserves direct HTTP fetching.
 Plain `.txt` lists with alternating channel-name and 40-character ID lines are
 recognized automatically, preserving their names. Malformed hashes are skipped.
 Unstructured bare hashes on other pages still require **Harvest bare content IDs**.
+M3U entries such as `http://127.0.0.1:6878/ace/getstream?infohash=<40 hex>`
+(and `/ace/manifest.m3u8?infohash=`) carry an infohash, not a content ID. The scrape
+converts each one to its content ID with the configured engine before storing it.
+Entries the engine does not know are skipped and counted in the result, for example
+`OK — 1712 imported, 3 infohashes unresolved`. If the engine is unreachable and
+nothing could be converted, the scrape fails and the source keeps its existing
+channels. Without an engine, infohash entries are skipped and the other entries
+still import.
 Select **Add**, then use the row's **Scrape** action. **Scrape all** processes every enabled source.
 
 The table records the last result, last run, and number of channels found. If a source fails, its error remains visible there.
@@ -130,11 +138,27 @@ Open **EPG**. The five tabs form one workflow:
 
 1. **Sources**: add an XMLTV URL and refresh it.
 2. **Channels**: review guide channels and create TV channels from selected unlinked entries.
-3. **Matching**: analyze scraped stream names and create matched TV channels in bulk.
+3. **Matching**: analyze scraped stream names, review the proposed streams and guide source, select rows, then **Apply reviewed matches**. Existing compatible TV channels are reused. Nothing is selected automatically.
 4. **Rules**: manage include/exclude patterns used by matching.
 5. **Export**: download XMLTV containing only your configured TV channels.
 
 Large imports can continue in the background. Progress and future runs appear on **Overview**.
+
+**Playlist → Programme guide** shows how many catalogue streams have a linked guide
+and links directly to reviewed matching. A guide imported under Sources is not
+linked to streams until stations are assigned. Select a particular EPG source to
+resolve competing providers; ambiguous matches are left for review.
+
+Optional **Settings → Automation → Automatically match guide channels** applies
+unambiguous exact matches after future successful scrapes and EPG refreshes. It is
+off by default. It preserves assignments, favorites and channel numbers, and
+leaves similar names or conflicting editions for review. The last run result is
+shown below the switch. Disabling it preserves existing assignments.
+
+M3U exports include the guide address and use the linked TV channel's guide ID.
+When different sources reuse an ID, exports qualify it by source to keep their
+programmes separate. Token-protected exports include the credential needed by
+players to fetch XMLTV; handle downloaded playlists like the protected URL.
 
 ![EPG page showing the Sources, Channels, Matching, Rules, and Export tabs](usage-05-epg.png)
 
@@ -177,6 +201,12 @@ Choose **Watch**. The player and scrollable catalogue stay on the same page. Sea
 ## Search and manual additions
 
 Use **Search** to query the connected AceStream engine catalogue. Add one result or select several and add them together. Use **Add channel** on **Acestream Channels** when you already know a content ID.
+
+Search results are infohashes. Adding one converts it to its content ID through the
+engine, and the channel is stored under that content ID; if the engine cannot
+convert it, nothing is stored and the error is shown. **Play** converts the same
+way before opening the player. When you paste an infohash
+into **Add channel**, tick **This is an infohash** so it is converted the same way.
 
 Search shows the catalogue's availability and last update separately from the
 current broadcast. **Catalogue: available** is an upstream report, not proof of

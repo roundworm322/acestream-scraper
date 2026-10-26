@@ -21,6 +21,7 @@ export interface AcestreamChannel {
   tvg_name?: string;
   m3u_source?: string;
   original_url?: string;
+  id_kind?: components['schemas']['AcestreamChannelResponse']['id_kind'];
   network_status?: components['schemas']['AcestreamChannelResponse']['network_status'];
   is_online: boolean | null;
   last_checked?: string;
@@ -50,6 +51,8 @@ export interface CreateAcestreamChannelDTO {
   original_url?: string;
   epg_update_protected?: boolean;
   tv_channel_id?: number;
+  /** `infohash` asks the backend to convert the id to its content ID before storing it. */
+  id_type?: components['schemas']['AcestreamChannelCreate']['id_type'];
 }
 
 /**
@@ -161,7 +164,7 @@ const acestreamChannelService = {
       delete params.is_active;
       delete params.active_only;
     }
-    const { data } = await apiClient.get('/v1/acestream-channels', { params });
+    const { data } = await apiClient.get('/v1/acestream-channels/', { params });
     return data;
   },
 
@@ -177,7 +180,7 @@ const acestreamChannelService = {
    * Create a new channel
    */
   createAcestreamChannel: async (channelData: CreateAcestreamChannelDTO): Promise<AcestreamChannel> => {
-    const { data } = await apiClient.post('/v1/acestream-channels', channelData);
+    const { data } = await apiClient.post('/v1/acestream-channels/', channelData);
     return data;
   },
 

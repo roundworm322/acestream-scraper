@@ -16,6 +16,8 @@ export interface StubEngine {
   url: string;
   /** Streams served so far — a test can assert the backend actually pulled one. */
   streamCount: () => number;
+  /** Infohashes the backend asked the engine to convert to content ids. */
+  contentIdLookups: () => string[];
   /** True once the backend asked the engine to stop the stream. */
   stopped: () => boolean;
   close: () => Promise<void>;
@@ -31,6 +33,16 @@ export interface StubEngine {
 const PACKET_BYTES = 188;
 const PACKETS_PER_CHUNK = 133;
 const CHUNK_INTERVAL_MS = 50;
+
+/**
+ * A search-catalogue infohash and the content id the engine maps it to. As on
+ * native engine 3.2.11, `getstream?id=<infohash>` fails ("failed to load
+ * content") while `/server/api?method=get_content_id` resolves it and
+ * `getstream?id=<content id>` plays, so storing the raw infohash is
+ * reproducible here.
+ */
+export const STUB_INFOHASH = '42832fbf9a1d3bdcca043e09951d6769fbbe04e7';
+export const STUB_INFOHASH_CONTENT_ID = 'e72d03fb9694164317260f684470be9ab781ed95';
 
 const json = (res: ServerResponse, body: unknown): void => {
   const payload = JSON.stringify(body);
@@ -53,6 +65,7 @@ export async function startStubEngine(
 
   let streams = 0;
   let stopped = false;
+  const lookups: string[] = [];
   const openResponses = new Set<ServerResponse>();
   const timers = new Set<NodeJS.Timeout>();
 
@@ -91,7 +104,19 @@ export async function startStubEngine(
     const requestUrl = new URL(req.url ?? '/', `http://${req.headers.host ?? '127.0.0.1'}`);
     const base = `http://${advertisedHost}:${(server.address() as AddressInfo).port}`;
 
+    if (requestUrl.pathname === '/server/api' && requestUrl.searchParams.get('method') === 'get_content_id') {
+      const infohash = (requestUrl.searchParams.get('infohash') ?? '').toLowerCase();
+      lookups.push(infohash);
+      json(res, infohash === STUB_INFOHASH
+        ? { result: { content_id: STUB_INFOHASH_CONTENT_ID } }
+        : { result: null, error: 'unknown infohash' });
+      return;
+    }
     if (requestUrl.pathname === '/ace/getstream') {
+      if ((requestUrl.searchParams.get('id') ?? '').toLowerCase() === STUB_INFOHASH) {
+        json(res, { response: null, error: 'failed to load content' });
+        return;
+      }
       json(res, {
         response: {
           playback_url: `${base}/content/x/1`,
@@ -127,6 +152,7 @@ export async function startStubEngine(
     url: `http://${advertisedHost}:${port}`,
     streamCount: () => streams,
     stopped: () => stopped,
+    contentIdLookups: () => [...lookups],
     close: async () => {
       for (const timer of timers) clearInterval(timer);
       timers.clear();

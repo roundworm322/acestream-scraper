@@ -175,6 +175,10 @@ under 32 MiB. Copying the channel container or using a smaller JSON response oft
 makes authoring easier. Extraction confirms format and pairing; it does not verify
 that a channel is online or that media will play.
 
+Recipes produce content IDs as extracted. Infohash conversion applies to automatic
+M3U extraction (`getstream?infohash=` links) and Search; a recipe that captures
+infohashes stores them unchanged, and they will not play.
+
 ## Troubleshooting
 
 | Symptom | What to check |
