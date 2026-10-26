@@ -594,3 +594,23 @@ def test_large_playlist_scrape_is_bounded_and_rescrape_uses_the_cache(db_session
     channels, status, _ = _scrape(db_session, monkeypatch, source, content)
     assert status == "OK" and len(channels) == 2000 and engine.calls == []
     assert _ids(db_session, source) == {ih[::-1] for ih in hashes}
+
+
+def test_search_content_id_lookup_for_play(client, db_session, engine_for_api):
+    response = client.get(f"/api/v1/search/{IH1.upper()}/content_id")
+    assert response.status_code == 200
+    assert response.json() == {"infohash": IH1, "content_id": CID1}
+    assert db_session.query(AcestreamChannel).count() == 0
+
+    response = client.get(f"/api/v1/search/{IH2}/content_id")
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "INFOHASH_UNRESOLVED"
+    assert client.get("/api/v1/search/not-a-hash/content_id").status_code == 422
+
+
+def test_search_content_id_lookup_without_engine(client, db_session):
+    set_engine_url(db_session, "")
+    response = client.get(f"/api/v1/search/{IH1}/content_id")
+    assert response.status_code == 409
+    resolver_module.get_cache().put_many({IH1: CID1})
+    assert client.get(f"/api/v1/search/{IH1}/content_id").json()["content_id"] == CID1

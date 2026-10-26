@@ -36,7 +36,7 @@ import { useAddAcestreamChannel, useSearch } from '../hooks/useSearch';
 import { useSnackbar } from '../hooks/useSnackbar';
 import { normalizeApiError } from '../services/apiErrors';
 import { CreateAcestreamChannelDTO } from '../services/channelService';
-import { SearchResultItem } from '../services/searchService';
+import { SearchResultItem, searchService } from '../services/searchService';
 import { formatBitrate } from '../utils/format';
 import SearchBroadcastStatus from '../components/SearchBroadcastStatus';
 
@@ -49,6 +49,7 @@ const Search: React.FC = () => {
   const [addedIds, setAddedIds] = useState<Set<string>>(() => new Set());
   const [activeSearch, setActiveSearch] = useState<{ query: string; page: number; category: string } | null>(null);
   const [playerTarget, setPlayerTarget] = useState<{ contentId: string; title: string } | null>(null);
+  const [resolvingPlayId, setResolvingPlayId] = useState<string | null>(null);
   const { snackbar, showSnackbar, closeSnackbar } = useSnackbar();
 
   const queryClient = useQueryClient();
@@ -124,6 +125,19 @@ const Search: React.FC = () => {
       showSnackbar(`Added ${channel.name} to your channels.`, 'success');
     } catch (error) {
       showSnackbar(`Could not add ${channel.name}: ${normalizeApiError(error).message}`, 'error');
+    }
+  };
+
+  const handlePlay = async (channel: SearchResultItem) => {
+    setResolvingPlayId(channel.id);
+    try {
+      // The engine refuses getstream?id=<infohash>; play the content ID instead.
+      const { content_id: contentId } = await searchService.resolveContentId(channel.id);
+      setPlayerTarget({ contentId, title: channel.name });
+    } catch (error) {
+      showSnackbar(`Could not play ${channel.name}: ${normalizeApiError(error).message}`, 'error');
+    } finally {
+      setResolvingPlayId(null);
     }
   };
 
@@ -296,8 +310,9 @@ const Search: React.FC = () => {
                             <Stack direction="row" spacing={1} alignItems="center">
                               <Button
                                 size="small"
-                                startIcon={<PlayArrowRounded />}
-                                onClick={() => setPlayerTarget({ contentId: channel.id, title: channel.name })}
+                                startIcon={resolvingPlayId === channel.id ? <CircularProgress size={16} /> : <PlayArrowRounded />}
+                                onClick={() => handlePlay(channel)}
+                                disabled={resolvingPlayId !== null}
                                 aria-label={`play ${channel.name}`}
                               >
                                 Play

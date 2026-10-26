@@ -2143,6 +2143,26 @@
         "title": "ConfigurationWarning",
         "type": "object"
       },
+      "ContentIdResponse": {
+        "properties": {
+          "content_id": {
+            "description": "The content ID the engine plays for it",
+            "title": "Content Id",
+            "type": "string"
+          },
+          "infohash": {
+            "description": "The search result's infohash, lowercase",
+            "title": "Infohash",
+            "type": "string"
+          }
+        },
+        "required": [
+          "infohash",
+          "content_id"
+        ],
+        "title": "ContentIdResponse",
+        "type": "object"
+      },
       "DashboardConfigResponse": {
         "description": "Schema for dashboard config response",
         "properties": {
@@ -16882,6 +16902,51 @@
           }
         },
         "summary": "Check Search Broadcast",
+        "tags": [
+          "search",
+          "search"
+        ]
+      }
+    },
+    "/api/v1/search/{infohash}/content_id": {
+      "get": {
+        "description": "Convert a search result's infohash to the content ID the player needs.\n\nCache first, then the engine's catalogue lookup; opens no playback session\nand stores no channel.",
+        "operationId": "resolve_search_content_id_api_v1_search__infohash__content_id_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "infohash",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{40}$",
+              "title": "Infohash",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentIdResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resolve Search Content Id",
         "tags": [
           "search",
           "search"

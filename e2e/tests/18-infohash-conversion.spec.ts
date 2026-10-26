@@ -16,6 +16,11 @@ test('an infohash added from search is stored as its content id', async ({ api, 
     expect(direct).toEqual({ response: null, error: 'failed to load content' });
 
     await api.putSetting('ace_engine_url', stub.url);
+    // Search → Play asks for the content ID before opening the player.
+    const lookup = await api.raw('get', `/api/v1/search/${STUB_INFOHASH}/content_id`);
+    expect(lookup.status()).toBe(200);
+    expect(await lookup.json()).toEqual({ infohash: STUB_INFOHASH, content_id: STUB_INFOHASH_CONTENT_ID });
+
     const created = await api.raw('post', '/api/v1/acestream-channels/', {
       id: STUB_INFOHASH, name: 'E2E infohash result', id_type: 'infohash',
     });

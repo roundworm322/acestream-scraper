@@ -27,6 +27,10 @@ class SearchResultItem(BaseModel):
             return str(v)
         return v
 
+class ContentIdResponse(BaseModel):
+    infohash: str = Field(..., description="The search result's infohash, lowercase")
+    content_id: str = Field(..., description="The content ID the engine plays for it")
+
 class SearchPagination(BaseModel):
     page: int = Field(..., description="Current page number")
     page_size: int = Field(..., description="Results per page")

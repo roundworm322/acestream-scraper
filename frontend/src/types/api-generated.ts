@@ -923,6 +923,16 @@ export interface paths {
      */
     post: operations["check_search_broadcast_api_v1_search__infohash__check_status_post"];
   };
+  "/api/v1/search/{infohash}/content_id": {
+    /**
+     * Resolve Search Content Id
+     * @description Convert a search result's infohash to the content ID the player needs.
+     *
+     * Cache first, then the engine's catalogue lookup; opens no playback session
+     * and stores no channel.
+     */
+    get: operations["resolve_search_content_id_api_v1_search__infohash__content_id_get"];
+  };
   "/api/v1/startup": {
     /** Status */
     get: operations["status_api_v1_startup_get"];
@@ -2135,6 +2145,19 @@ export interface components {
       replacement: string;
       /** Selected */
       selected: string;
+    };
+    /** ContentIdResponse */
+    ContentIdResponse: {
+      /**
+       * Content Id
+       * @description The content ID the engine plays for it
+       */
+      content_id: string;
+      /**
+       * Infohash
+       * @description The search result's infohash, lowercase
+       */
+      infohash: string;
     };
     /**
      * DashboardConfigResponse
@@ -8675,6 +8698,34 @@ export interface operations {
       200: {
         content: {
           "application/json": components["schemas"]["ChannelStatusResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Resolve Search Content Id
+   * @description Convert a search result's infohash to the content ID the player needs.
+   *
+   * Cache first, then the engine's catalogue lookup; opens no playback session
+   * and stores no channel.
+   */
+  resolve_search_content_id_api_v1_search__infohash__content_id_get: {
+    parameters: {
+      path: {
+        infohash: string;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["ContentIdResponse"];
         };
       };
       /** @description Validation Error */

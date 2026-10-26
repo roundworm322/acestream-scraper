@@ -204,7 +204,8 @@ Use **Search** to query the connected AceStream engine catalogue. Add one result
 
 Search results are infohashes. Adding one converts it to its content ID through the
 engine, and the channel is stored under that content ID; if the engine cannot
-convert it, nothing is stored and the error is shown. When you paste an infohash
+convert it, nothing is stored and the error is shown. **Play** converts the same
+way before opening the player. When you paste an infohash
 into **Add channel**, tick **This is an infohash** so it is converted the same way.
 
 Search shows the catalogue's availability and last update separately from the

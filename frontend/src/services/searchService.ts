@@ -3,6 +3,7 @@ import type { components } from '../types/api-generated';
 
 export type SearchResultItem = components['schemas']['SearchResultItem'];
 export type BroadcastStatus = components['schemas']['ChannelStatusResponse'];
+export type ContentIdResponse = components['schemas']['ContentIdResponse'];
 
 export interface SearchPagination {
   page: number;
@@ -43,6 +44,11 @@ export interface AddMultipleResponse {
 const BASE_URL = '/v1/search';
 
 export const searchService = {
+  /** Search results are infohashes; the player needs the content ID. */
+  resolveContentId: async (id: string): Promise<ContentIdResponse> => {
+    const response = await apiClient.get<ContentIdResponse>(`${BASE_URL}/${encodeURIComponent(id)}/content_id`);
+    return response.data;
+  },
   checkBroadcast: async (id: string): Promise<BroadcastStatus> => {
     // Allow the configured 120s maximum, one doubled startup retry, an
     // observation window, and cleanup. Normal checks use 10s windows.
