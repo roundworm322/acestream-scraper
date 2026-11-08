@@ -718,6 +718,14 @@ probe. Resolution must not create channels or start engine sessions; failures
 never fall back to saving/playing the infohash as a content ID. Existing entries
 remain unchanged; see `wiki/Usage.md#search-and-manual-additions` for recovery.
 
+Playlist `getstream?infohash=`/`manifest.m3u8?infohash=` entries and manual adds with
+`id_type: "infohash"` convert through `content_id_resolver` before storage: cache
+(`infohash_content_ids.json` beside the DB) first, then the playback engine's
+`get_content_id`, never a playback session. Unresolved entries are skipped and
+counted in the source status; an outage that converts nothing fails the scrape and
+keeps the source's rows, and partial outages never prune. Raw infohashes are never
+stored; see `wiki/Usage.md`.
+
 ## TV and system dashboards
 
 The default `/` route is TV dashboard under Watch: app-owned playback, channel/stream
