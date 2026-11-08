@@ -12,6 +12,7 @@ if [ "${E2E_RESET_DB:-0}" = "1" ]; then
   rm -f "$STACK_DIR/config/scraper.db" "$STACK_DIR/config/scraper.db-journal" \
     "$STACK_DIR/config/scraper.db-wal" "$STACK_DIR/config/scraper.db-shm" \
     "$STACK_DIR/config/access.db" "$STACK_DIR/config/access.db-journal" "$STACK_DIR/config/access.required" \
+    "$STACK_DIR/config/infohash_content_ids.json" \
     "$STACK_DIR/config/runtime-config.json"
   log "reset e2e database and first-run configuration"
 fi

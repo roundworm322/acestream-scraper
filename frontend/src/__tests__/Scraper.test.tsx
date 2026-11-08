@@ -4,7 +4,7 @@ import { ThemeProvider } from '@mui/material/styles';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-import Scraper from '../pages/Scraper';
+import Scraper, { describeScrapeResult } from '../pages/Scraper';
 import { createAppTheme } from '../theme';
 import { TestMemoryRouter } from '../testUtils/router';
 
@@ -245,3 +245,15 @@ describe('Scraper', () => {
 
 
 // Provider selection only saves a definition; importing remains a separate action.
+
+describe('describeScrapeResult', () => {
+  it('keeps a scrape with unresolved infohashes a success and exposes the note', () => {
+    expect(describeScrapeResult('OK')).toEqual({ label: 'OK', color: 'success' });
+    expect(describeScrapeResult('OK — 1712 imported, 3 infohashes unresolved (3 unknown to the engine)')).toEqual({
+      label: 'OK',
+      color: 'success',
+      detail: '1712 imported, 3 infohashes unresolved (3 unknown to the engine)',
+    });
+    expect(describeScrapeResult('Error: AceStream engine unreachable').color).toBe('error');
+  });
+});
