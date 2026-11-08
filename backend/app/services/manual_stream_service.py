@@ -30,7 +30,7 @@ def create_manual_stream(db: Session, request: AcestreamChannelCreate) -> Acestr
         result = ImportPipeline.apply(db, ImportReference(request.source_url, allow_excluded=request.allow_excluded), [
             ImportEntry(request.id, request.name, group=request.group, logo=request.logo,
                         tvg_id=request.tvg_id, tvg_name=request.tvg_name, is_online=request.is_online,
-                        updates=request.model_dump(exclude_unset=True, exclude={'allow_excluded', 'tv_channel_id'}))], 'manual')
+                        updates=request.model_dump(exclude_unset=True, exclude={'allow_excluded', 'tv_channel_id', 'id_type'}))], 'manual')
         link_imported_stream(db, request.id, request.tv_channel_id)
         db.commit()
         channel = result.items[0].channel

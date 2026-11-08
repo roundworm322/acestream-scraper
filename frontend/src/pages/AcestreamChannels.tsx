@@ -150,8 +150,9 @@ const AcestreamChannels: React.FC = () => {
 
   const handleEditorSave = async (values: QuickEditValues) => {
     if (editorMode === 'create') {
+      let created: AcestreamChannel | undefined;
       try {
-        await acestreamChannelService.createAcestreamChannel(values);
+        created = await acestreamChannelService.createAcestreamChannel(values);
       } catch (error) {
         const detail = normalizeApiError(error);
         if (detail.code !== 'IMPORT_EXCLUDED') throw error;
@@ -159,12 +160,16 @@ const AcestreamChannels: React.FC = () => {
         const ruleIds = context?.rule_ids ?? [];
         const accepted = await confirm({ title: 'Add excluded stream?', body: <Stack spacing={1}><span>This stream matches import rule {ruleIds.join(', ')}. Add anyway applies only to this manual addition.</span><Button href={`/scraper?tab=exclusions#rule-${ruleIds[0] ?? ''}`}>Review import exclusions</Button></Stack>, confirmLabel: 'Add anyway' });
         if (!accepted) return;
-        await acestreamChannelService.createAcestreamChannel({ ...values, allow_excluded: true });
+        created = await acestreamChannelService.createAcestreamChannel({ ...values, allow_excluded: true });
       }
       if (values.tv_channel_id) {
         for (const key of ['tvChannels', 'tvChannel', 'tvChannelAcestreams']) void queryClient.invalidateQueries({ queryKey: [key] });
       }
-      setNotice({ message: `Added ${values.name}.` });
+      setNotice({
+        message: created?.id && created.id !== values.id
+          ? `Added ${values.name}. The infohash was converted to content ID ${created.id}.`
+          : `Added ${values.name}.`,
+      });
     } else if (editorChannel?.id) {
       const { id, ...updates } = values;
       void id;

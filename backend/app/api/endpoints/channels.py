@@ -12,6 +12,7 @@ from io import StringIO
 
 from app.config.database import get_db
 from app.api.error_handlers import APIError
+from app.api.infohash import resolve_submitted_infohash
 from app.models.models import AcestreamChannel, TVChannel
 from app.services.acestreamchannel_service import AcestreamChannelService
 from app.services.channel_status_service import ChannelStatusService
@@ -208,8 +209,14 @@ def check_acestream_channel_status(acestreamchannel_id: str, db: Session = Depen
 def create_acestream_channel(acestreamchannel: AcestreamChannelCreate, db: Session = Depends(get_db)):
     """
     Create a new Acestream channel. If a channel with the same ID exists, update it.
+
+    With `id_type: "infohash"` the id is converted to its content ID first;
+    the raw infohash is never stored.
     """
     from app.services.manual_stream_service import create_manual_stream
+    if acestreamchannel.id_type == "infohash":
+        content_id = resolve_submitted_infohash(db, acestreamchannel.id)
+        acestreamchannel = acestreamchannel.model_copy(update={"id": content_id, "id_type": "content_id"})
     return create_manual_stream(db, acestreamchannel)
 
 

@@ -126,6 +126,9 @@ export interface paths {
         /**
          * Create Acestream Channel
          * @description Create a new Acestream channel. If a channel with the same ID exists, update it.
+         *
+         *     With `id_type: "infohash"` the id is converted to its content ID first;
+         *     the raw infohash is never stored.
          */
         post: operations["create_acestream_channel_api_v1_acestream_channels__post"];
         delete?: never;
@@ -953,6 +956,9 @@ export interface paths {
         /**
          * Create Acestream Channel
          * @description Create a new Acestream channel. If a channel with the same ID exists, update it.
+         *
+         *     With `id_type: "infohash"` the id is converted to its content ID first;
+         *     the raw infohash is never stored.
          */
         post: operations["create_acestream_channel_api_v1_channels__post"];
         delete?: never;
@@ -5085,6 +5091,13 @@ export interface components {
              * @description Acestream channel ID (required, GUID string)
              */
             id: string;
+            /**
+             * Id Type
+             * @description What `id` is. `infohash` (an engine search result or a getstream?infohash= link) is converted to its content ID through the engine before the channel is stored; the response carries the stored content ID.
+             * @default content_id
+             * @enum {string}
+             */
+            id_type?: "content_id" | "infohash";
             /** Is Online */
             is_online?: boolean | null;
             /** Logo */

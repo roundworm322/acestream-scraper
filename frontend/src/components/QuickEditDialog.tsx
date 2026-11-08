@@ -30,6 +30,8 @@ export interface QuickEditValues {
   tvg_name: string;
   is_active: boolean;
   epg_update_protected: boolean;
+  /** Only when creating: `infohash` asks the backend to convert the ID to its content ID. */
+  id_type?: 'content_id' | 'infohash';
 }
 
 export type QuickEditChannel = Partial<AcestreamChannel> & { id?: string };
@@ -62,10 +64,12 @@ const QuickEditDialog: React.FC<QuickEditDialogProps> = ({ open, onClose, channe
   const [values, setValues] = useState<QuickEditValues>(() => toValues(channel));
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [isInfohash, setIsInfohash] = useState(false);
 
   useEffect(() => {
     setValues(toValues(channel));
     setError(null);
+    setIsInfohash(false);
   }, [channel, open]);
 
   const setField = (field: keyof QuickEditValues) => (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -77,7 +81,8 @@ const QuickEditDialog: React.FC<QuickEditDialogProps> = ({ open, onClose, channe
     setError(null);
     setSaving(true);
     try {
-      await onSave({ ...values, id: values.id.trim(), name: values.name.trim() });
+      const trimmed = { ...values, id: values.id.trim(), name: values.name.trim() };
+      await onSave(creating ? { ...trimmed, id_type: isInfohash ? 'infohash' : 'content_id' } : trimmed);
     } catch (err) {
       setError(err instanceof ApiError ? getErrorMessage(err) : err instanceof Error && err.message ? err.message : getErrorMessage(err));
     } finally {
@@ -107,8 +112,15 @@ const QuickEditDialog: React.FC<QuickEditDialogProps> = ({ open, onClose, channe
             fullWidth
             required
             InputProps={{ readOnly: !creating, sx: { fontFamily: 'monospace' } }}
-            helperText={creating ? '40-character hash from the source or the engine search.' : 'The ID cannot be changed after creation.'}
+            helperText={creating ? '40-character content ID from the source.' : 'The ID cannot be changed after creation.'}
           />
+          {creating ? (
+            <FormControlLabel
+              control={<Checkbox checked={isInfohash} onChange={(event) => setIsInfohash(event.target.checked)} />}
+              label="This is an infohash (from engine search or a getstream?infohash= link). The engine converts it to a content ID."
+              sx={{ mt: -1 }}
+            />
+          ) : null}
           {creating ? <TVChannelLinkField value={values.tv_channel_id ?? null} onChange={value => setValues(previous => ({ ...previous, tv_channel_id: value ?? undefined }))} disabled={saving} /> : null}
           <TextField label="Group" value={values.group} onChange={setField('group')} fullWidth />
           <TextField label="Logo URL" value={values.logo} onChange={setField('logo')} fullWidth />
